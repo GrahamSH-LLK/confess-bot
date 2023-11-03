@@ -58,33 +58,6 @@ describe('Server', () => {
       expect(body.type).to.equal(InteractionResponseType.PONG);
     });
 
-    it('should handle an AWW command interaction', async () => {
-      const interaction = {
-        type: InteractionType.APPLICATION_COMMAND,
-        data: {
-          name: AWW_COMMAND.name,
-        },
-      };
-
-      const request = {
-        method: 'POST',
-        url: new URL('/', 'http://discordo.example'),
-      };
-
-      const env = {};
-
-      verifyDiscordRequestStub.resolves({
-        isValid: true,
-        interaction: interaction,
-      });
-
-      const response = await server.fetch(request, env);
-      const body = await response.json();
-      expect(body.type).to.equal(
-        InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
-      );
-    });
-
     it('should handle an invite command interaction', async () => {
       const interaction = {
         type: InteractionType.APPLICATION_COMMAND,
