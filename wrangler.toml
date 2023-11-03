@@ -1,7 +1,9 @@
 name = "awwbot"
 main = "./src/server.js"
 compatibility_date="2023-05-18"
-
+kv_namespaces = [
+    { binding = "confessions", id = "8962667d8186491e925eb8fb2cad6808", preview_id = "5d576e3cb4ec4a778084589883c65d49" }
+]
 # [secrets]
 # DISCORD_TOKEN
 # DISCORD_PUBLIC_KEY

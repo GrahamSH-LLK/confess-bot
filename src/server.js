@@ -8,9 +8,10 @@ import {
   InteractionType,
   verifyKey,
 } from 'discord-interactions';
-import { AWW_COMMAND, INVITE_COMMAND } from './commands.js';
+import { AWW_COMMAND, CONFESS_COMMAND, INVITE_COMMAND } from './commands.js';
 import { getCuteUrl } from './reddit.js';
 import { InteractionResponseFlags } from 'discord-interactions';
+import send from './webhooksend.js';
 
 class JsonResponse extends Response {
   constructor(body, init) {
@@ -58,14 +59,30 @@ router.post('/', async (request, env) => {
   if (interaction.type === InteractionType.APPLICATION_COMMAND) {
     // Most user commands will come as `APPLICATION_COMMAND`.
     switch (interaction.data.name.toLowerCase()) {
-      case AWW_COMMAND.name.toLowerCase(): {
-        const cuteUrl = await getCuteUrl();
-        return new JsonResponse({
-          type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
-          data: {
-            content: cuteUrl,
+      case CONFESS_COMMAND.name.toLowerCase(): {
+        console.log(
+          interaction.member.user.id,
+          interaction.member.user.username,
+        );
+        const currentId = parseInt(await env.confessions.get('id'));
+        console.log('why the fuck');
+        const confession = interaction.data.options[0].value;
+        await send(confession, currentId + 1);
+        await env.confessions.put('id', currentId + 1);
+        const text = new TextEncoder().encode(interaction.member.user.id);
+
+        const digest = await crypto.subtle.digest(
+          {
+            name: 'SHA-256',
           },
-        });
+          text, // The data you want to hash as an ArrayBuffer
+        );
+        const hexString = [...new Uint8Array(digest)]
+        .map(b => b.toString(16).padStart(2, '0'))
+        .join('')
+  
+        await env.confessions.put(`${currentId + 1}-confessions`, hexString);
+        console.log('hi', await env.confessions.get(`${currentId + 1}-confessions`));
       }
       case INVITE_COMMAND.name.toLowerCase(): {
         const applicationId = env.DISCORD_APPLICATION_ID;
