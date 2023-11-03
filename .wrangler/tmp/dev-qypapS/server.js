@@ -2750,7 +2750,17 @@ router.post("/", async (request, env) => {
         );
         const hexString = [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, "0")).join("");
         await env.confessions.put(`${currentId + 1}-confessions`, hexString);
-        console.log("hi", await env.confessions.get(`${currentId + 1}-confessions`));
+        console.log(
+          "hi",
+          await env.confessions.get(`${currentId + 1}-confessions`)
+        );
+        return new JsonResponse({
+          type: import_discord_interactions.InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+          data: {
+            content: "Noted!",
+            flags: import_discord_interactions2.InteractionResponseFlags.EPHEMERAL
+          }
+        });
       }
       case INVITE_COMMAND.name.toLowerCase(): {
         const applicationId = env.DISCORD_APPLICATION_ID;

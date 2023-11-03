@@ -82,7 +82,17 @@ router.post('/', async (request, env) => {
         .join('')
   
         await env.confessions.put(`${currentId + 1}-confessions`, hexString);
-        console.log('hi', await env.confessions.get(`${currentId + 1}-confessions`));
+        console.log(
+          'hi',
+          await env.confessions.get(`${currentId + 1}-confessions`),
+        );
+        return new JsonResponse({
+          type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+          data: {
+            content: 'Noted!',
+            flags: InteractionResponseFlags.EPHEMERAL,
+          },
+        });
       }
       case INVITE_COMMAND.name.toLowerCase(): {
         const applicationId = env.DISCORD_APPLICATION_ID;
