@@ -24,6 +24,17 @@ class JsonResponse extends Response {
     super(jsonBody, init);
   }
 }
+class HTMLResponse extends Response {
+  constructor(body, init) {
+    init = init || {
+      headers: {
+        'content-type': 'text/html;charset=UTF-8',
+      },
+    };
+    super(body, init);
+  }
+}
+
 
 const router = Router();
 
@@ -31,7 +42,93 @@ const router = Router();
  * A simple :wave: hello page to verify the worker is working.
  */
 router.get('/', (request, env) => {
-  return new Response(`👋 ${env.DISCORD_APPLICATION_ID}`);
+  return new HTMLResponse(`<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Decrypt Confession</title>
+  <style>
+    body { font-family: sans-serif; max-width: 600px; margin: 2rem auto; padding: 1rem; }
+    textarea { width: 100%; height: 150px; font-family: monospace; }
+    input, button { width: 100%; margin-top: 1rem; padding: 0.5rem; }
+  </style>
+</head>
+<body>
+  <h2>🔓 Decrypt Confession</h2>
+
+  <label for="privateKey">Private Key</label>
+  <textarea id="privateKey" placeholder="-----BEGIN PRIVATE KEY-----\n..."></textarea>
+
+  <label for="encrypted">Encrypted Message:</label>
+  <textarea id="encrypted" placeholder="Base64 string..."></textarea>
+
+  <button onclick="decrypt()">Decrypt</button>
+
+  <h3>📜 Decrypted Result:</h3>
+  <pre id="output" style="white-space: pre-wrap; background: #f3f3f3; padding: 1rem;"></pre>
+
+  <script>
+    async function decrypt() {
+      const output = document.getElementById("output");
+      const encryptedBase64 = document.getElementById("encrypted").value.trim();
+      const privateKeyPem = document.getElementById("privateKey").value.trim();
+
+      try {
+        const privateKey = await importPrivateKey(privateKeyPem);
+        const encryptedArrayBuffer = base64ToArrayBuffer(encryptedBase64);
+
+        const decrypted = await crypto.subtle.decrypt(
+          {
+            name: "RSA-OAEP",
+          },
+          privateKey,
+          encryptedArrayBuffer
+        );
+
+        const decoded = new TextDecoder().decode(decrypted);
+        const parsed = JSON.parse(decoded);
+
+        output.textContent = \`✅ Decrypted:\n\nUser: \${parsed.user}\nConfession number: \${parsed.number}\`;
+      } catch (err) {
+        console.error(err);
+        output.textContent = \`❌ Failed to decrypt or parse:\n\${err.message}\`;
+      }
+    }
+
+    function base64ToArrayBuffer(base64) {
+      const binaryString = atob(base64);
+      const len = binaryString.length;
+      const bytes = new Uint8Array(len);
+      for (let i = 0; i < len; i++) {
+        bytes[i] = binaryString.charCodeAt(i);
+      }
+      return bytes.buffer;
+    }
+
+    async function importPrivateKey(pem) {
+      const pemHeader = "-----BEGIN PRIVATE KEY-----";
+      const pemFooter = "-----END PRIVATE KEY-----";
+      const pemContents = pem
+        .replace(pemHeader, "")
+        .replace(pemFooter, "")
+        .replace(/\s+/g, "");
+      const binaryDer = base64ToArrayBuffer(pemContents);
+
+      return await crypto.subtle.importKey(
+        "pkcs8",
+        binaryDer,
+        {
+          name: "RSA-OAEP",
+          hash: "SHA-256",
+        },
+        false,
+        ["decrypt"]
+      );
+    }
+  </script>
+</body>
+</html>
+`);
 });
 
 /**
@@ -69,19 +166,36 @@ router.post('/', async (request, env) => {
         const confession = interaction.data.options[0].value;
         await send(confession, currentId + 1);
         await env.confessions.put('id', currentId + 1);
-        const text = new TextEncoder().encode(interaction.member.user.id);
-
-        const digest = await crypto.subtle.digest(
-          {
-            name: 'SHA-256',
-          },
-          text, // The data you want to hash as an ArrayBuffer
+        const text = Buffer.from(
+          JSON.stringify({
+            user: interaction.member.user.username,
+            number: currentId + 1,
+          }),
         );
-        const hexString = [...new Uint8Array(digest)]
-        .map(b => b.toString(16).padStart(2, '0'))
-        .join('')
-  
-        await env.confessions.put(`${currentId + 1}-confessions`, hexString);
+        const publicKey = `
+-----BEGIN PUBLIC KEY-----
+MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA2YqHBPF6uglTrahFbngB
+PvTpZp+2rxr4HKwyTd4h3/f8L1qvdGtyAwIZPC/pry2RGitCfA5tsJPMOnouks4g
+Oyq9YEBKpBsPkjio0udZfNqBflefXJENMymlyhQG9dpu0BQE6AxpYXiXVjs05u/v
+/U4AKsd57UIQjK44W28uzVvGe0GfJBiIOqHDN3Mh5HGvVB+DdDI3O2k1CXXFSXIL
+Uq+37sWRIeWzPOwPB2NFKgDdAdYJCcOzqQWROgSv//22OfrbCDz6cVXAbYTJCFIc
+VkQm1TpjHeEE97Mz3TnzG6Me4nihPGG4i9TD0JueIvDPZEawfe5O9J3QNqLM2TqQ
+mQIDAQAB
+-----END PUBLIC KEY-----
+`;
+        const encryptedData = crypto.publicEncrypt(
+          {
+            key: publicKey,
+            padding: crypto.constants.RSA_PKCS1_OAEP_PADDING, // Recommended padding scheme
+            oaepHash: 'sha256', // Recommended hash algorithm for OAEP
+          },
+          text,
+        );
+
+        await env.confessions.put(
+          `${currentId + 1}-confessions`,
+          encryptedData.toString('base64'),
+        );
         console.log(
           'hi',
           await env.confessions.get(`${currentId + 1}-confessions`),

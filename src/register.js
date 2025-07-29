@@ -34,7 +34,7 @@ const response = await fetch(url, {
     Authorization: `Bot ${token}`,
   },
   method: 'PUT',
-  body: JSON.stringify([ CONFESS_COMMAND]),
+  body: JSON.stringify([CONFESS_COMMAND]),
 });
 
 if (response.ok) {
